@@ -54,8 +54,16 @@ GitHub Actions
 ├── .github/
 │   ├── actions/
 │   │   ├── app-checks/
+│   │   ├── check-kubernetes-access/
+│   │   ├── configure-kubeconfig/
+│   │   ├── deploy-kustomize/
 │   │   ├── deploy-summary/
 │   │   ├── detect-environment/
+│   │   ├── docker-build/
+│   │   ├── docker-image-metadata/
+│   │   ├── export-docker-image/
+│   │   ├── load-docker-image/
+│   │   ├── push-docker-image/
 │   │   └── verify-deployment/
 │   └── workflows/
 │       └── ci-cd.yml
@@ -219,7 +227,7 @@ The ingress addon is required for Ingress resources. The metrics-server addon is
 
 Approach A is the normal flow when using GitHub-hosted runners:
 
-1. GitHub Actions builds, scans, and pushes the image.
+1. GitHub Actions builds the image, scans it in a separate job, and pushes it only after the scan passes.
 2. You deploy manually to local Minikube because GitHub-hosted runners cannot access your local cluster.
 
 For a fully local test without pulling from a registry, build the image inside Minikube's Docker daemon:
@@ -317,13 +325,21 @@ Jobs:
    - Runs Pytest unit tests.
    - Runs before Docker image build.
 
-3. `build-scan-push`
+3. `build-image`
    - Builds the Docker image.
+   - Exports the built image as a short-lived workflow artifact so the next jobs can use the exact same image.
+
+4. `scan-image`
+   - Downloads and loads the Docker image built by `build-image`.
    - Scans the built image with Trivy.
+   - Reports all vulnerability severities.
    - Fails on HIGH or CRITICAL vulnerabilities.
+
+5. `push-image`
+   - Downloads and loads the scanned Docker image.
    - Pushes the image only after the scan passes.
 
-4. `deploy-minikube`
+6. `deploy-minikube`
    - Checks for `kubectl` and a reachable Kubernetes cluster.
    - Skips direct deployment on GitHub-hosted runners without cluster access.
    - Applies the correct Kustomize overlay when Minikube is reachable.

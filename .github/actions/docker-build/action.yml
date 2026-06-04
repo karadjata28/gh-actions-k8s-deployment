@@ -1,0 +1,39 @@
+name: Build Docker image
+description: Build a Docker image using Docker Buildx without pushing it.
+
+inputs:
+  tags:
+    description: Docker tags to apply to the image.
+    required: true
+  app-name:
+    description: Application name used for image labels.
+    required: true
+  source-url:
+    description: Source repository URL.
+    required: true
+  revision:
+    description: Source commit SHA.
+    required: true
+  context:
+    description: Docker build context.
+    required: false
+    default: .
+  dockerfile:
+    description: Dockerfile path.
+    required: false
+    default: ./Dockerfile
+
+runs:
+  using: composite
+  steps:
+    - name: Build Docker image
+      uses: docker/build-push-action@v6
+      with:
+        context: ${{ inputs.context }}
+        file: ${{ inputs.dockerfile }}
+        load: true
+        tags: ${{ inputs.tags }}
+        labels: |
+          org.opencontainers.image.title=${{ inputs.app-name }}
+          org.opencontainers.image.revision=${{ inputs.revision }}
+          org.opencontainers.image.source=${{ inputs.source-url }}

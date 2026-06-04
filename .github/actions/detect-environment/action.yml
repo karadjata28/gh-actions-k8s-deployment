@@ -64,7 +64,7 @@ runs:
             ingress_host="prod.devops-demo.local"
             ;;
           *)
-            echo "::error::Unsupported branch '$branch'. Allowed patterns: feature/* -> test, develop -> dev, main -> prod, hotfix/* -> prod."
+            echo "::error::Unsupported branch '$branch'. Allowed patterns: feature/*, develop, main, hotfix/* "
             exit 1
             ;;
         esac

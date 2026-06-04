@@ -1,0 +1,23 @@
+name: Push Docker image
+description: Push one or more Docker image tags.
+
+inputs:
+  tags:
+    description: Newline-separated Docker image tags.
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Push Docker image
+      shell: bash
+      env:
+        TAGS: ${{ inputs.tags }}
+      run: |
+        set -euo pipefail
+
+        while IFS= read -r tag; do
+          if [ -n "$tag" ]; then
+            docker push "$tag"
+          fi
+        done <<< "$TAGS"

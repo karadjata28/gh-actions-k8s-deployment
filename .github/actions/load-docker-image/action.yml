@@ -1,0 +1,23 @@
+name: Load Docker image
+description: Load a Docker image from a tar artifact file.
+
+inputs:
+  artifact-name:
+    description: Docker image artifact filename.
+    required: true
+  input-dir:
+    description: Directory containing the image tar.
+    required: false
+    default: /tmp/docker-image
+
+runs:
+  using: composite
+  steps:
+    - name: Load Docker image
+      shell: bash
+      env:
+        ARTIFACT_NAME: ${{ inputs.artifact-name }}
+        INPUT_DIR: ${{ inputs.input-dir }}
+      run: |
+        set -euo pipefail
+        docker load -i "${INPUT_DIR}/${ARTIFACT_NAME}"

@@ -53,8 +53,8 @@ jobs:
       - name: Run application checks
         uses: ./.github/actions/app-checks
 
-  build-scan-push:
-    name: Build, scan, and push image
+  build-image:
+    name: Build Docker image
     needs:
       - detect-environment
       - app-checks
@@ -62,6 +62,8 @@ jobs:
     outputs:
       image: ${{ steps.image-meta.outputs.primary_tag }}
       image_uri: ${{ steps.image-meta.outputs.image_uri }}
+      tags: ${{ steps.image-meta.outputs.tags }}
+      artifact_name: ${{ steps.image-meta.outputs.artifact_name }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -71,44 +73,59 @@ jobs:
 
       - name: Prepare Docker image tags
         id: image-meta
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          registry="${REGISTRY%/}"
-          repository="$(echo "$IMAGE_REPOSITORY" | tr '[:upper:]' '[:lower:]')"
-          image_uri="${registry}/${repository}"
-          primary_tag="${image_uri}:${{ needs.detect-environment.outputs.environment }}-${{ needs.detect-environment.outputs.short_sha }}"
-
-          {
-            echo "tags<<EOF"
-            echo "$primary_tag"
-            if [ "${GITHUB_REF_NAME}" = "main" ]; then
-              echo "${image_uri}:latest"
-            fi
-            echo "EOF"
-          } >> "$GITHUB_OUTPUT"
-
-          echo "image_uri=$image_uri" >> "$GITHUB_OUTPUT"
-          echo "primary_tag=$primary_tag" >> "$GITHUB_OUTPUT"
-          echo "Primary image tag: $primary_tag"
+        uses: ./.github/actions/docker-image-metadata
+        with:
+          app-name: ${{ env.APP_NAME }}
+          registry: ${{ env.REGISTRY }}
+          image-repository: ${{ env.IMAGE_REPOSITORY }}
+          environment: ${{ needs.detect-environment.outputs.environment }}
+          short-sha: ${{ needs.detect-environment.outputs.short_sha }}
+          ref-name: ${{ github.ref_name }}
 
       - name: Build Docker image
-        uses: docker/build-push-action@v6
+        uses: ./.github/actions/docker-build
         with:
-          context: .
-          file: ./Dockerfile
-          load: true
           tags: ${{ steps.image-meta.outputs.tags }}
-          labels: |
-            org.opencontainers.image.title=${{ env.APP_NAME }}
-            org.opencontainers.image.revision=${{ github.sha }}
-            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+          app-name: ${{ env.APP_NAME }}
+          source-url: ${{ github.server_url }}/${{ github.repository }}
+          revision: ${{ github.sha }}
+
+      - name: Export Docker image artifact
+        uses: ./.github/actions/export-docker-image
+        with:
+          tags: ${{ steps.image-meta.outputs.tags }}
+          artifact-name: ${{ steps.image-meta.outputs.artifact_name }}
+
+      - name: Upload Docker image artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.image-meta.outputs.artifact_name }}
+          path: /tmp/docker-image/${{ steps.image-meta.outputs.artifact_name }}
+          if-no-files-found: error
+          retention-days: 1
+
+  scan-image:
+    name: Scan Docker image
+    needs:
+      - detect-environment
+      - build-image
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download Docker image artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ needs.build-image.outputs.artifact_name }}
+          path: /tmp/docker-image
+
+      - name: Load Docker image
+        uses: ./.github/actions/load-docker-image
+        with:
+          artifact-name: ${{ needs.build-image.outputs.artifact_name }}
 
       - name: Run Trivy vulnerability report
         uses: aquasecurity/trivy-action@0.28.0
         with:
-          image-ref: ${{ steps.image-meta.outputs.primary_tag }}
+          image-ref: ${{ needs.build-image.outputs.image }}
           format: table
           exit-code: "0"
           ignore-unfixed: true
@@ -118,12 +135,33 @@ jobs:
       - name: Enforce Trivy HIGH and CRITICAL gate
         uses: aquasecurity/trivy-action@0.28.0
         with:
-          image-ref: ${{ steps.image-meta.outputs.primary_tag }}
+          image-ref: ${{ needs.build-image.outputs.image }}
           format: table
           exit-code: "1"
           ignore-unfixed: true
           vuln-type: os,library
           severity: HIGH,CRITICAL
+
+  push-image:
+    name: Push Docker image
+    needs:
+      - build-image
+      - scan-image
+    runs-on: ubuntu-latest
+    outputs:
+      image: ${{ needs.build-image.outputs.image }}
+      image_uri: ${{ needs.build-image.outputs.image_uri }}
+    steps:
+      - name: Download Docker image artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ needs.build-image.outputs.artifact_name }}
+          path: /tmp/docker-image
+
+      - name: Load Docker image
+        uses: ./.github/actions/load-docker-image
+        with:
+          artifact-name: ${{ needs.build-image.outputs.artifact_name }}
 
       - name: Log in to GitHub Container Registry
         if: env.REGISTRY == 'ghcr.io'
@@ -142,22 +180,16 @@ jobs:
           password: ${{ secrets.REGISTRY_PASSWORD }}
 
       - name: Push Docker image
-        shell: bash
-        env:
-          TAGS: ${{ steps.image-meta.outputs.tags }}
-        run: |
-          set -euo pipefail
-          while IFS= read -r tag; do
-            if [ -n "$tag" ]; then
-              docker push "$tag"
-            fi
-          done <<< "$TAGS"
+        uses: ./.github/actions/push-docker-image
+        with:
+          tags: ${{ needs.build-image.outputs.tags }}
 
   deploy-minikube:
     name: Deploy to Minikube when available
     needs:
       - detect-environment
-      - build-scan-push
+      - build-image
+      - push-image
     runs-on: ${{ vars.MINIKUBE_RUNNER || 'ubuntu-latest' }}
     env:
       ENVIRONMENT: ${{ needs.detect-environment.outputs.environment }}
@@ -165,64 +197,29 @@ jobs:
       DEPLOYMENT_NAME: ${{ needs.detect-environment.outputs.deployment_name }}
       SERVICE_NAME: ${{ needs.detect-environment.outputs.service_name }}
       INGRESS_HOST: ${{ needs.detect-environment.outputs.ingress_host }}
-      IMAGE: ${{ needs.build-scan-push.outputs.image }}
+      IMAGE: ${{ needs.build-image.outputs.image }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
       - name: Configure kubeconfig from secret when provided
-        shell: bash
-        env:
-          KUBE_CONFIG_DATA: ${{ secrets.KUBE_CONFIG }}
-        run: |
-          set -euo pipefail
-          if [ -z "$KUBE_CONFIG_DATA" ]; then
-            echo "No KUBE_CONFIG secret provided. The runner's default kubeconfig will be used if available."
-            exit 0
-          fi
-
-          mkdir -p "$HOME/.kube"
-          if echo "$KUBE_CONFIG_DATA" | base64 --decode > "$HOME/.kube/config" 2>/dev/null; then
-            echo "Configured kubeconfig from base64 encoded KUBE_CONFIG secret."
-          else
-            printf '%s' "$KUBE_CONFIG_DATA" > "$HOME/.kube/config"
-            echo "Configured kubeconfig from plain text KUBE_CONFIG secret."
-          fi
-          chmod 600 "$HOME/.kube/config"
+        uses: ./.github/actions/configure-kubeconfig
+        with:
+          kube-config-data: ${{ secrets.KUBE_CONFIG }}
 
       - name: Check Kubernetes access
         id: cluster
-        shell: bash
-        run: |
-          set -euo pipefail
-          if ! command -v kubectl >/dev/null 2>&1; then
-            echo "::notice::kubectl is not installed. Direct Minikube deployment is skipped."
-            echo "available=false" >> "$GITHUB_OUTPUT"
-            echo "status=Skipped - kubectl is not installed" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-
-          if ! kubectl cluster-info --request-timeout=5s >/tmp/kubernetes-cluster-info.txt 2>&1; then
-            echo "::notice::No reachable Kubernetes cluster is configured. Direct Minikube deployment is skipped."
-            cat /tmp/kubernetes-cluster-info.txt
-            echo "available=false" >> "$GITHUB_OUTPUT"
-            echo "status=Skipped - no reachable Kubernetes cluster" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-
-          kubectl version --client=true
-          kubectl get nodes -o wide
-          echo "available=true" >> "$GITHUB_OUTPUT"
-          echo "status=Cluster available" >> "$GITHUB_OUTPUT"
+        uses: ./.github/actions/check-kubernetes-access
 
       - name: Deploy selected Kustomize overlay
         id: deploy
         if: steps.cluster.outputs.available == 'true'
-        shell: bash
-        run: |
-          set -euo pipefail
-          kubectl apply -k "k8s/overlays/${ENVIRONMENT}"
-          kubectl set image "deployment/${DEPLOYMENT_NAME}" "web=${IMAGE}" -n "${NAMESPACE}"
+        uses: ./.github/actions/deploy-kustomize
+        with:
+          environment: ${{ env.ENVIRONMENT }}
+          namespace: ${{ env.NAMESPACE }}
+          deployment-name: ${{ env.DEPLOYMENT_NAME }}
+          image: ${{ env.IMAGE }}
 
       - name: Verify Kubernetes deployment
         id: verify

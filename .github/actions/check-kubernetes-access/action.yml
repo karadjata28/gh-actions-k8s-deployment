@@ -1,0 +1,39 @@
+name: Check Kubernetes access
+description: Check whether kubectl is installed and a Kubernetes cluster is reachable.
+
+outputs:
+  available:
+    description: Whether a Kubernetes cluster is reachable.
+    value: ${{ steps.cluster.outputs.available }}
+  status:
+    description: Human-readable cluster availability status.
+    value: ${{ steps.cluster.outputs.status }}
+
+runs:
+  using: composite
+  steps:
+    - name: Check Kubernetes access
+      id: cluster
+      shell: bash
+      run: |
+        set -euo pipefail
+
+        if ! command -v kubectl >/dev/null 2>&1; then
+          echo "::notice::kubectl is not installed. Direct Minikube deployment is skipped."
+          echo "available=false" >> "$GITHUB_OUTPUT"
+          echo "status=Skipped - kubectl is not installed" >> "$GITHUB_OUTPUT"
+          exit 0
+        fi
+
+        if ! kubectl cluster-info --request-timeout=5s >/tmp/kubernetes-cluster-info.txt 2>&1; then
+          echo "::notice::No reachable Kubernetes cluster is configured. Direct Minikube deployment is skipped."
+          cat /tmp/kubernetes-cluster-info.txt
+          echo "available=false" >> "$GITHUB_OUTPUT"
+          echo "status=Skipped - no reachable Kubernetes cluster" >> "$GITHUB_OUTPUT"
+          exit 0
+        fi
+
+        kubectl version --client=true
+        kubectl get nodes -o wide
+        echo "available=true" >> "$GITHUB_OUTPUT"
+        echo "status=Cluster available" >> "$GITHUB_OUTPUT"

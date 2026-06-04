@@ -1,0 +1,76 @@
+name: Docker image metadata
+description: Generate Docker image tags and artifact metadata.
+
+inputs:
+  app-name:
+    description: Application name.
+    required: true
+  registry:
+    description: Container registry host.
+    required: true
+  image-repository:
+    description: Image repository path.
+    required: true
+  environment:
+    description: Deployment environment.
+    required: true
+  short-sha:
+    description: Short commit SHA.
+    required: true
+  ref-name:
+    description: Git branch name.
+    required: true
+
+outputs:
+  image_uri:
+    description: Fully qualified image repository URI without tag.
+    value: ${{ steps.metadata.outputs.image_uri }}
+  primary_tag:
+    description: Primary Docker image tag.
+    value: ${{ steps.metadata.outputs.primary_tag }}
+  tags:
+    description: Newline-separated Docker tags.
+    value: ${{ steps.metadata.outputs.tags }}
+  artifact_name:
+    description: Docker image artifact filename.
+    value: ${{ steps.metadata.outputs.artifact_name }}
+
+runs:
+  using: composite
+  steps:
+    - name: Prepare Docker image tags
+      id: metadata
+      shell: bash
+      env:
+        APP_NAME: ${{ inputs.app-name }}
+        REGISTRY: ${{ inputs.registry }}
+        IMAGE_REPOSITORY: ${{ inputs.image-repository }}
+        ENVIRONMENT: ${{ inputs.environment }}
+        SHORT_SHA: ${{ inputs.short-sha }}
+        REF_NAME: ${{ inputs.ref-name }}
+      run: |
+        set -euo pipefail
+
+        registry="$REGISTRY"
+        registry="${registry%/}"
+        repository="$(echo "$IMAGE_REPOSITORY" | tr '[:upper:]' '[:lower:]')"
+        image_uri="${registry}/${repository}"
+        primary_tag="${image_uri}:${ENVIRONMENT}-${SHORT_SHA}"
+        artifact_name="${APP_NAME}-${ENVIRONMENT}-${SHORT_SHA}.tar"
+
+        {
+          echo "tags<<EOF"
+          echo "$primary_tag"
+          if [ "$REF_NAME" = "main" ]; then
+            echo "${image_uri}:latest"
+          fi
+          echo "EOF"
+        } >> "$GITHUB_OUTPUT"
+
+        {
+          echo "image_uri=$image_uri"
+          echo "primary_tag=$primary_tag"
+          echo "artifact_name=$artifact_name"
+        } >> "$GITHUB_OUTPUT"
+
+        echo "Primary image tag: $primary_tag"

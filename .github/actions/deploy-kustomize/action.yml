@@ -1,0 +1,40 @@
+name: Deploy Kustomize overlay
+description: Apply a selected Kustomize overlay and update the deployment image.
+
+inputs:
+  environment:
+    description: Environment overlay name.
+    required: true
+  namespace:
+    description: Kubernetes namespace.
+    required: true
+  deployment-name:
+    description: Kubernetes Deployment name.
+    required: true
+  container-name:
+    description: Kubernetes container name to update.
+    required: false
+    default: web
+  image:
+    description: Fully qualified image tag.
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Deploy selected Kustomize overlay
+      shell: bash
+      env:
+        ENVIRONMENT: ${{ inputs.environment }}
+        NAMESPACE: ${{ inputs.namespace }}
+        DEPLOYMENT_NAME: ${{ inputs.deployment-name }}
+        CONTAINER_NAME: ${{ inputs.container-name }}
+        IMAGE: ${{ inputs.image }}
+      run: |
+        set -euo pipefail
+
+        kubectl apply -k "k8s/overlays/${ENVIRONMENT}"
+        kubectl set image \
+          "deployment/${DEPLOYMENT_NAME}" \
+          "${CONTAINER_NAME}=${IMAGE}" \
+          -n "${NAMESPACE}"

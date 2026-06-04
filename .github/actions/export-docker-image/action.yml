@@ -1,0 +1,30 @@
+name: Export Docker image
+description: Save one or more Docker image tags to a tar artifact file.
+
+inputs:
+  tags:
+    description: Newline-separated Docker image tags.
+    required: true
+  artifact-name:
+    description: Docker image artifact filename.
+    required: true
+  output-dir:
+    description: Directory where the image tar should be written.
+    required: false
+    default: /tmp/docker-image
+
+runs:
+  using: composite
+  steps:
+    - name: Export Docker image artifact
+      shell: bash
+      env:
+        TAGS: ${{ inputs.tags }}
+        ARTIFACT_NAME: ${{ inputs.artifact-name }}
+        OUTPUT_DIR: ${{ inputs.output-dir }}
+      run: |
+        set -euo pipefail
+
+        mkdir -p "$OUTPUT_DIR"
+        mapfile -t tag_list <<< "$TAGS"
+        docker save -o "${OUTPUT_DIR}/${ARTIFACT_NAME}" "${tag_list[@]}"
