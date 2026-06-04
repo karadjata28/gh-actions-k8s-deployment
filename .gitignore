@@ -1,0 +1,38 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Local configuration and secrets
+.env
+.env.*
+!.env.example
+kubeconfig
+*.kubeconfig
+*.pem
+*.key
+*.crt
+secrets/
+
+# Logs and temporary files
+*.log
+tmp/
+temp/
+.DS_Store
+
+# IDE/editor metadata
+.idea/
+.vscode/
+
+# Build artifacts
+dist/
+build/

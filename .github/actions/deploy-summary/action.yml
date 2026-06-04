@@ -1,0 +1,68 @@
+name: Deployment summary
+description: Write a Kubernetes deployment summary to the GitHub Actions job summary.
+
+inputs:
+  app-name:
+    description: Application name.
+    required: true
+  environment:
+    description: Selected deployment environment.
+    required: true
+  branch:
+    description: Git branch that triggered the workflow.
+    required: true
+  commit-sha:
+    description: Commit SHA.
+    required: true
+  image:
+    description: Docker image tag used for deployment.
+    required: true
+  namespace:
+    description: Kubernetes namespace.
+    required: true
+  deployment-name:
+    description: Kubernetes Deployment name.
+    required: true
+  service-name:
+    description: Kubernetes Service name.
+    required: true
+  ingress-host:
+    description: Kubernetes Ingress hostname.
+    required: true
+  status:
+    description: Deployment status.
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Write GitHub job summary
+      shell: bash
+      run: |
+        set -euo pipefail
+        {
+          echo "## Deployment Summary"
+          echo
+          echo "| Field | Value |"
+          echo "| --- | --- |"
+          echo "| Application | ${{ inputs.app-name }} |"
+          echo "| Environment | ${{ inputs.environment }} |"
+          echo "| Branch | ${{ inputs.branch }} |"
+          echo "| Commit | ${{ inputs.commit-sha }} |"
+          echo "| Image | \`${{ inputs.image }}\` |"
+          echo "| Namespace | \`${{ inputs.namespace }}\` |"
+          echo "| Deployment | \`${{ inputs.deployment-name }}\` |"
+          echo "| Service | \`${{ inputs.service-name }}\` |"
+          echo "| Ingress host | \`${{ inputs.ingress-host }}\` |"
+          echo "| Status | ${{ inputs.status }} |"
+          echo
+          echo "### Useful kubectl commands"
+          echo
+          echo '```bash'
+          echo "kubectl get pods -n ${{ inputs.namespace }}"
+          echo "kubectl get svc -n ${{ inputs.namespace }}"
+          echo "kubectl get ingress -n ${{ inputs.namespace }}"
+          echo "kubectl rollout status deployment/${{ inputs.deployment-name }} -n ${{ inputs.namespace }}"
+          echo "kubectl logs -l app.kubernetes.io/name=${{ inputs.deployment-name }} -n ${{ inputs.namespace }}"
+          echo '```'
+        } >> "$GITHUB_STEP_SUMMARY"

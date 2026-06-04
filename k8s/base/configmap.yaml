@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: devops-k8s-demo-config
+  labels:
+    app.kubernetes.io/name: devops-k8s-demo
+    app.kubernetes.io/component: config
+data:
+  APP_NAME: devops-k8s-demo
+  APP_ENV: base
+  APP_VERSION: "0.1.0"
+  LOG_LEVEL: info
+  PORT: "8080"

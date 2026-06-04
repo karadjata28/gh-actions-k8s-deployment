@@ -1,0 +1,83 @@
+name: Detect environment
+description: Map Git branches to deployment environments and Kubernetes metadata.
+
+inputs:
+  ref-name:
+    description: Git branch name.
+    required: true
+
+outputs:
+  environment:
+    description: Selected environment.
+    value: ${{ steps.detect.outputs.environment }}
+  namespace:
+    description: Kubernetes namespace for the selected environment.
+    value: ${{ steps.detect.outputs.namespace }}
+  ingress_host:
+    description: Ingress host for the selected environment.
+    value: ${{ steps.detect.outputs.ingress_host }}
+  short_sha:
+    description: Seven-character commit SHA.
+    value: ${{ steps.detect.outputs.short_sha }}
+  branch_slug:
+    description: Branch name normalized for labels and logs.
+    value: ${{ steps.detect.outputs.branch_slug }}
+  deployment_name:
+    description: Kubernetes Deployment name.
+    value: ${{ steps.detect.outputs.deployment_name }}
+  service_name:
+    description: Kubernetes Service name.
+    value: ${{ steps.detect.outputs.service_name }}
+
+runs:
+  using: composite
+  steps:
+    - name: Resolve branch environment
+      id: detect
+      shell: bash
+      run: |
+        set -euo pipefail
+
+        branch="${{ inputs.ref-name }}"
+        deployment_name="devops-k8s-demo"
+        service_name="devops-k8s-demo"
+
+        case "$branch" in
+          feature/*)
+            environment="test"
+            namespace="devops-demo-test"
+            ingress_host="test.devops-demo.local"
+            ;;
+          develop)
+            environment="dev"
+            namespace="devops-demo-dev"
+            ingress_host="dev.devops-demo.local"
+            ;;
+          main)
+            environment="prod"
+            namespace="devops-demo-prod"
+            ingress_host="prod.devops-demo.local"
+            ;;
+          hotfix/*)
+            environment="prod"
+            namespace="devops-demo-prod"
+            ingress_host="prod.devops-demo.local"
+            ;;
+          *)
+            echo "::error::Unsupported branch '$branch'. Allowed patterns: feature/* -> test, develop -> dev, main -> prod, hotfix/* -> prod."
+            exit 1
+            ;;
+        esac
+
+        branch_slug="$(echo "$branch" | tr '[:upper:]' '[:lower:]' | sed -E 's#[^a-z0-9_.-]+#-#g' | sed -E 's#(^-|-$)##g')"
+        short_sha="${GITHUB_SHA:0:7}"
+
+        echo "environment=$environment" >> "$GITHUB_OUTPUT"
+        echo "namespace=$namespace" >> "$GITHUB_OUTPUT"
+        echo "ingress_host=$ingress_host" >> "$GITHUB_OUTPUT"
+        echo "short_sha=$short_sha" >> "$GITHUB_OUTPUT"
+        echo "branch_slug=$branch_slug" >> "$GITHUB_OUTPUT"
+        echo "deployment_name=$deployment_name" >> "$GITHUB_OUTPUT"
+        echo "service_name=$service_name" >> "$GITHUB_OUTPUT"
+
+        echo "Branch '$branch' maps to environment '$environment' and namespace '$namespace'."

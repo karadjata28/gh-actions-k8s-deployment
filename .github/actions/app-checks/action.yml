@@ -1,0 +1,31 @@
+name: Application checks
+description: Install Python dependencies and run syntax, lint, and test checks.
+
+runs:
+  using: composite
+  steps:
+    - name: Install application dependencies
+      shell: bash
+      run: |
+        set -euo pipefail
+        python -m pip install --upgrade pip
+        python -m pip install -r app/requirements-dev.txt
+
+    - name: Compile Python source
+      shell: bash
+      run: |
+        set -euo pipefail
+        mapfile -t python_files < <(find app -type f -name "*.py" | sort)
+        python -m py_compile "${python_files[@]}"
+
+    - name: Run Ruff linting
+      shell: bash
+      run: |
+        set -euo pipefail
+        ruff check app
+
+    - name: Run unit tests
+      shell: bash
+      run: |
+        set -euo pipefail
+        pytest -q app/tests
