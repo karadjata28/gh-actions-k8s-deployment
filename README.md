@@ -347,7 +347,11 @@ Jobs:
    - Applies the correct Kustomize overlay when Minikube is reachable.
    - Sets the Deployment image to the image built in the workflow.
    - Verifies rollout, pods, Service, and Ingress.
-   - Writes a deployment summary to the GitHub Actions job summary.
+   - Exposes the final deployment status for the summary job.
+
+7. `deployment-summary`
+   - Runs after `deploy-minikube` with `if: always()`.
+   - Writes a deployment summary even when deployment or rollout verification fails.
 
 ## Direct Deployment to Minikube
 

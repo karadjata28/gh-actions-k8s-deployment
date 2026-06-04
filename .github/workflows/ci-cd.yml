@@ -168,10 +168,12 @@ jobs:
         with:
           tags: ${{ needs.build-image.outputs.tags }}
 
-  deoloy:
-    name: Deploy to Minikube 
+  deploy-minikube:
+    name: Deploy to Minikube
     needs: [ detect-environment, build-image, push-image ]
     runs-on: ${{ vars.MINIKUBE_RUNNER || 'ubuntu-latest' }}
+    outputs:
+      status: ${{ steps.deployment-status.outputs.status }}
     env:
       ENVIRONMENT: ${{ needs.detect-environment.outputs.environment }}
       NAMESPACE: ${{ needs.detect-environment.outputs.namespace }}
@@ -199,15 +201,51 @@ jobs:
 
       - name: Verify Kubernetes deployment
         id: verify
-        if: steps.cluster.outputs.available == 'true'
+        if: steps.cluster.outputs.available == 'true' && steps.deploy.outcome == 'success'
         uses: ./.github/actions/verify-deployment
         with:
           namespace: ${{ env.NAMESPACE }}
           deployment-name: ${{ env.DEPLOYMENT_NAME }}
           service-name: ${{ env.SERVICE_NAME }}
 
-      - name: Write deployment summary
+      - name: Resolve deployment status
+        id: deployment-status
         if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if [ "${{ steps.cluster.outputs.available }}" != "true" ]; then
+            status="${{ steps.cluster.outputs.status }}"
+          elif [ "${{ steps.deploy.outcome }}" != "success" ]; then
+            status="Failed - Kustomize apply or image update failed"
+          elif [ "${{ steps.verify.outcome }}" != "success" ]; then
+            status="Failed - rollout verification failed"
+          else
+            status="Successful"
+          fi
+
+          echo "status=$status" >> "$GITHUB_OUTPUT"
+          echo "Deployment status: $status"
+
+  deployment-summary:
+    name: Deployment summary
+    needs: [ detect-environment, build-image, deploy-minikube ]
+    if: always() && needs.detect-environment.result == 'success' && needs.build-image.result == 'success' && needs.deploy-minikube.result != 'skipped'
+    runs-on: ubuntu-latest
+    env:
+      ENVIRONMENT: ${{ needs.detect-environment.outputs.environment }}
+      NAMESPACE: ${{ needs.detect-environment.outputs.namespace }}
+      DEPLOYMENT_NAME: ${{ needs.detect-environment.outputs.deployment_name }}
+      SERVICE_NAME: ${{ needs.detect-environment.outputs.service_name }}
+      INGRESS_HOST: ${{ needs.detect-environment.outputs.ingress_host }}
+      IMAGE: ${{ needs.build-image.outputs.image }}
+      DEPLOYMENT_STATUS: ${{ needs.deploy-minikube.outputs.status || needs.deploy-minikube.result }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Write deployment summary
         uses: ./.github/actions/deploy-summary
         with:
           app-name: ${{ env.APP_NAME }}
@@ -219,4 +257,4 @@ jobs:
           deployment-name: ${{ env.DEPLOYMENT_NAME }}
           service-name: ${{ env.SERVICE_NAME }}
           ingress-host: ${{ env.INGRESS_HOST }}
-          status: ${{ steps.cluster.outputs.available != 'true' && steps.cluster.outputs.status || (steps.deploy.outcome == 'success' && steps.verify.outcome == 'success' && 'Successful' || 'Failed') }}
+          status: ${{ env.DEPLOYMENT_STATUS }}
