@@ -118,7 +118,7 @@ jobs:
           artifact-name: ${{ needs.build-image.outputs.artifact_name }}
 
       - name: Run Trivy vulnerability report
-        uses: aquasecurity/trivy-action@0.28.0
+        uses: aquasecurity/trivy-action@v0.36.0
         with:
           image-ref: ${{ needs.build-image.outputs.image }}
           format: table
@@ -128,7 +128,7 @@ jobs:
           severity: UNKNOWN,LOW,MEDIUM,HIGH,CRITICAL
 
       - name: Fail job on Trivy HIGH or CRITICAL vulnerabilities
-        uses: aquasecurity/trivy-action@0.28.0
+        uses: aquasecurity/trivy-action@v0.36.0
         with:
           image-ref: ${{ needs.build-image.outputs.image }}
           format: table
