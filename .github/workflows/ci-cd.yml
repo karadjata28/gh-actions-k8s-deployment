@@ -168,12 +168,9 @@ jobs:
         with:
           tags: ${{ needs.build-image.outputs.tags }}
 
-  deploy-minikube:
-    name: Deploy to Minikube when available
-    needs:
-      - detect-environment
-      - build-image
-      - push-image
+  deoloy:
+    name: Deploy to Minikube 
+    needs: [ detect-environment, build-image, push-image ]
     runs-on: ${{ vars.MINIKUBE_RUNNER || 'ubuntu-latest' }}
     env:
       ENVIRONMENT: ${{ needs.detect-environment.outputs.environment }}
@@ -185,11 +182,6 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-
-      - name: Configure kubeconfig from secret when provided
-        uses: ./.github/actions/configure-kubeconfig
-        with:
-          kube-config-data: ${{ secrets.KUBE_CONFIG }}
 
       - name: Check Kubernetes access
         id: cluster

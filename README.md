@@ -55,7 +55,6 @@ GitHub Actions
 │   ├── actions/
 │   │   ├── app-checks/
 │   │   ├── check-kubernetes-access/
-│   │   ├── configure-kubeconfig/
 │   │   ├── deploy-kustomize/
 │   │   ├── deploy-summary/
 │   │   ├── detect-environment/
@@ -124,7 +123,6 @@ Optional GitHub secrets:
 | Secret | Purpose |
 | --- | --- |
 | `REGISTRY_PASSWORD` | Fallback Docker Hub password if `REGISTRY_TOKEN` is not available. A Docker Hub access token is preferred. |
-| `KUBE_CONFIG` | Optional kubeconfig content for a reachable Kubernetes cluster. For local Minikube, a self-hosted runner normally uses its local kubeconfig instead. |
 
 Optional repository variables:
 
@@ -359,7 +357,7 @@ High-level setup:
 
 1. Install a self-hosted GitHub Actions runner on your machine.
 2. Start Minikube on that machine.
-3. Confirm the runner user can run `kubectl get nodes`.
+3. Confirm the runner user can run `kubectl get nodes` using its local Kubernetes context.
 4. Set repository variable `MINIKUBE_RUNNER` to the runner label, for example `self-hosted` or `minikube`.
 5. Run the workflow from a supported branch.
 
@@ -380,7 +378,7 @@ This makes the security gate visible and easy to explain during a portfolio revi
 ## Security Practices Demonstrated
 
 - No real secrets committed.
-- GitHub Secrets used for Docker Hub credentials and optional kubeconfig.
+- GitHub Secrets used for Docker Hub credentials.
 - Kubernetes Secret example kept as placeholder-only documentation.
 - Container runs as a non-root user.
 - Pod and container security contexts restrict privileges.
