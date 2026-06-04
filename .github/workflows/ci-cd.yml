@@ -9,7 +9,7 @@ permissions:
 
 env:
   APP_NAME: devops-k8s-demo
-  DOCKERHUB_IMAGE_NAME: devops-k8s-demo
+  DOCKERHUB_IMAGE_NAME: k8s-deployment
 
 jobs:
   detect-environment:

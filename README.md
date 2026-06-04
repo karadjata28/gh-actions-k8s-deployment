@@ -26,7 +26,7 @@ GitHub Actions
      |       HIGH/CRITICAL findings fail the pipeline
      |
      +--> Push image to Docker Hub
-     |       docker.io/<dockerhub-user>/devops-k8s-demo:<env>-<sha>
+     |       docker.io/<dockerhub-user>/k8s-deployment:<env>-<sha>
      |
      +--> Deploy to Minikube when a Kubernetes cluster is reachable
              GitHub-hosted runner: normally skipped
@@ -133,10 +133,10 @@ Optional repository variables:
 The workflow creates environment-aware image tags:
 
 ```text
-docker.io/<REGISTRY_USERNAME>/devops-k8s-demo:test-<short_sha>
-docker.io/<REGISTRY_USERNAME>/devops-k8s-demo:dev-<short_sha>
-docker.io/<REGISTRY_USERNAME>/devops-k8s-demo:prod-<short_sha>
-docker.io/<REGISTRY_USERNAME>/devops-k8s-demo:latest
+docker.io/<REGISTRY_USERNAME>/k8s-deployment:test-<short_sha>
+docker.io/<REGISTRY_USERNAME>/k8s-deployment:dev-<short_sha>
+docker.io/<REGISTRY_USERNAME>/k8s-deployment:prod-<short_sha>
+docker.io/<REGISTRY_USERNAME>/k8s-deployment:latest
 ```
 
 The `latest` tag is only pushed from the `main` branch.
@@ -240,7 +240,7 @@ kubectl rollout status deployment/devops-k8s-demo -n devops-demo-dev
 To deploy an image pushed by GitHub Actions:
 
 ```bash
-IMAGE=docker.io/<dockerhub-user>/devops-k8s-demo:dev-<short_sha>
+IMAGE=docker.io/<dockerhub-user>/k8s-deployment:dev-<short_sha>
 kubectl apply -k k8s/overlays/dev
 kubectl set image deployment/devops-k8s-demo web="$IMAGE" -n devops-demo-dev
 kubectl rollout status deployment/devops-k8s-demo -n devops-demo-dev
