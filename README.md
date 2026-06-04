@@ -2,7 +2,7 @@
 
 This repository demonstrates a realistic DevOps CI/CD workflow for a containerized application deployed to Kubernetes with Minikube.
 
-It includes a Python Flask service, Docker image build and security scanning, branch-based environment selection, GitHub Container Registry publishing, Kustomize overlays for test/dev/prod, direct Minikube deployment support for self-hosted GitHub Actions runners, and clear deployment summaries.
+It includes a Python Flask service, Docker image build and security scanning, branch-based environment selection, Docker Hub publishing, Kustomize overlays for test/dev/prod, direct Minikube deployment support for self-hosted GitHub Actions runners, and clear deployment summaries.
 
 ## Architecture
 
@@ -25,8 +25,8 @@ GitHub Actions
      +--> Trivy image scan
      |       HIGH/CRITICAL findings fail the pipeline
      |
-     +--> Push image to registry
-     |       Default: ghcr.io/<owner>/<repo>:<env>-<sha>
+     +--> Push image to Docker Hub
+     |       docker.io/<dockerhub-user>/devops-k8s-demo:<env>-<sha>
      |
      +--> Deploy to Minikube when a Kubernetes cluster is reachable
              GitHub-hosted runner: normally skipped
@@ -41,7 +41,7 @@ GitHub Actions
 - Ruff
 - Docker
 - GitHub Actions
-- GitHub Container Registry
+- Docker Hub
 - Trivy
 - Kubernetes
 - Kustomize
@@ -110,22 +110,26 @@ Any other branch stops the workflow with a clear error. This makes environment p
 
 ## Required Secrets and Variables
 
-GitHub Container Registry is the default registry and uses the built-in `GITHUB_TOKEN`.
+Docker Hub is the only image publishing target used by this project.
 
-Optional secrets:
+Required GitHub secrets:
 
 | Secret | Purpose |
 | --- | --- |
-| `REGISTRY_USERNAME` | Username for Docker Hub or another registry. Not needed for GHCR. |
-| `REGISTRY_PASSWORD` | Password or token for Docker Hub or another registry. Not needed for GHCR. |
+| `REGISTRY_USERNAME` | Docker Hub username or organization. |
+| `REGISTRY_TOKEN` | Docker Hub access token used by GitHub Actions to push images. |
+
+Optional GitHub secrets:
+
+| Secret | Purpose |
+| --- | --- |
+| `REGISTRY_PASSWORD` | Fallback Docker Hub password if `REGISTRY_TOKEN` is not available. A Docker Hub access token is preferred. |
 | `KUBE_CONFIG` | Optional kubeconfig content for a reachable Kubernetes cluster. For local Minikube, a self-hosted runner normally uses its local kubeconfig instead. |
 
 Optional repository variables:
 
 | Variable | Default | Purpose |
 | --- | --- | --- |
-| `CONTAINER_REGISTRY` | `ghcr.io` | Set to `docker.io` or another registry host to push elsewhere. |
-| `IMAGE_REPOSITORY` | `${owner}/${repo}` | Set to a Docker Hub repository such as `your-user/devops-k8s-demo`. |
 | `MINIKUBE_RUNNER` | `ubuntu-latest` | Set to a self-hosted runner label such as `self-hosted` or `minikube` to deploy directly to local Minikube. |
 
 ## Image Tagging
@@ -133,10 +137,10 @@ Optional repository variables:
 The workflow creates environment-aware image tags:
 
 ```text
-ghcr.io/<owner>/<repo>:test-<short_sha>
-ghcr.io/<owner>/<repo>:dev-<short_sha>
-ghcr.io/<owner>/<repo>:prod-<short_sha>
-ghcr.io/<owner>/<repo>:latest
+docker.io/<REGISTRY_USERNAME>/devops-k8s-demo:test-<short_sha>
+docker.io/<REGISTRY_USERNAME>/devops-k8s-demo:dev-<short_sha>
+docker.io/<REGISTRY_USERNAME>/devops-k8s-demo:prod-<short_sha>
+docker.io/<REGISTRY_USERNAME>/devops-k8s-demo:latest
 ```
 
 The `latest` tag is only pushed from the `main` branch.
@@ -230,7 +234,7 @@ Approach A is the normal flow when using GitHub-hosted runners:
 1. GitHub Actions builds the image, scans it in a separate job, and pushes it only after the scan passes.
 2. You deploy manually to local Minikube because GitHub-hosted runners cannot access your local cluster.
 
-For a fully local test without pulling from a registry, build the image inside Minikube's Docker daemon:
+For a fully local test without pulling from Docker Hub, build the image inside Minikube's Docker daemon:
 
 ```bash
 eval "$(minikube docker-env)"
@@ -242,13 +246,13 @@ kubectl rollout status deployment/devops-k8s-demo -n devops-demo-dev
 To deploy an image pushed by GitHub Actions:
 
 ```bash
-IMAGE=ghcr.io/<owner>/<repo>:dev-<short_sha>
+IMAGE=docker.io/<dockerhub-user>/devops-k8s-demo:dev-<short_sha>
 kubectl apply -k k8s/overlays/dev
 kubectl set image deployment/devops-k8s-demo web="$IMAGE" -n devops-demo-dev
 kubectl rollout status deployment/devops-k8s-demo -n devops-demo-dev
 ```
 
-If the GHCR package is private, either make the package public for the demo or create a Kubernetes image pull secret.
+If the Docker Hub repository is private, either make it public for the demo or create a Kubernetes image pull secret.
 
 ## Access the App in Minikube
 
@@ -376,7 +380,7 @@ This makes the security gate visible and easy to explain during a portfolio revi
 ## Security Practices Demonstrated
 
 - No real secrets committed.
-- GitHub Secrets used for registry credentials and optional kubeconfig.
+- GitHub Secrets used for Docker Hub credentials and optional kubeconfig.
 - Kubernetes Secret example kept as placeholder-only documentation.
 - Container runs as a non-root user.
 - Pod and container security contexts restrict privileges.
@@ -392,7 +396,7 @@ See `screenshots/README.md` for the screenshot checklist. Useful screenshots inc
 
 - Successful GitHub Actions pipeline
 - Trivy scan output
-- Image published in registry
+- Image published in Docker Hub
 - `kubectl get pods`
 - `kubectl get svc`
 - `kubectl get ingress`

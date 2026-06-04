@@ -1,15 +1,15 @@
-name: Docker image metadata
-description: Generate Docker image tags and artifact metadata.
+name: Docker Hub image metadata
+description: Generate Docker Hub image tags and artifact metadata.
 
 inputs:
   app-name:
     description: Application name.
     required: true
-  registry:
-    description: Container registry host.
+  dockerhub-username:
+    description: Docker Hub username or organization.
     required: true
-  image-repository:
-    description: Image repository path.
+  image-name:
+    description: Docker Hub repository name.
     required: true
   environment:
     description: Deployment environment.
@@ -43,18 +43,22 @@ runs:
       shell: bash
       env:
         APP_NAME: ${{ inputs.app-name }}
-        REGISTRY: ${{ inputs.registry }}
-        IMAGE_REPOSITORY: ${{ inputs.image-repository }}
+        DOCKERHUB_USERNAME: ${{ inputs.dockerhub-username }}
+        IMAGE_NAME: ${{ inputs.image-name }}
         ENVIRONMENT: ${{ inputs.environment }}
         SHORT_SHA: ${{ inputs.short-sha }}
         REF_NAME: ${{ inputs.ref-name }}
       run: |
         set -euo pipefail
 
-        registry="$REGISTRY"
-        registry="${registry%/}"
-        repository="$(echo "$IMAGE_REPOSITORY" | tr '[:upper:]' '[:lower:]')"
-        image_uri="${registry}/${repository}"
+        if [ -z "$DOCKERHUB_USERNAME" ]; then
+          echo "::error::REGISTRY_USERNAME secret is required for Docker Hub image tagging."
+          exit 1
+        fi
+
+        dockerhub_username="$(echo "$DOCKERHUB_USERNAME" | tr '[:upper:]' '[:lower:]')"
+        image_name="$(echo "$IMAGE_NAME" | tr '[:upper:]' '[:lower:]')"
+        image_uri="docker.io/${dockerhub_username}/${image_name}"
         primary_tag="${image_uri}:${ENVIRONMENT}-${SHORT_SHA}"
         artifact_name="${APP_NAME}-${ENVIRONMENT}-${SHORT_SHA}.tar"
 
