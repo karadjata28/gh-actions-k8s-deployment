@@ -11,7 +11,7 @@ spec:
     kind: Deployment
     name: devops-k8s-demo
   minReplicas: 2
-  maxReplicas: 5
+  maxReplicas: 4
   metrics:
     - type: Resource
       resource:

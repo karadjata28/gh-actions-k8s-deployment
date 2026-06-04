@@ -16,7 +16,6 @@ def create_app() -> Flask:
                 "environment": os.getenv("APP_ENV", "local"),
                 "version": os.getenv("APP_VERSION", "0.1.0"),
                 "hostname": socket.gethostname(),
-                "secretConfigured": bool(os.getenv("DEMO_SECRET_TOKEN")),
             }
         )
 

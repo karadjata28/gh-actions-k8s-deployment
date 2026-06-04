@@ -43,13 +43,6 @@ spec:
           envFrom:
             - configMapRef:
                 name: devops-k8s-demo-config
-          env:
-            - name: DEMO_SECRET_TOKEN
-              valueFrom:
-                secretKeyRef:
-                  name: devops-k8s-demo-secret
-                  key: DEMO_SECRET_TOKEN
-                  optional: true
           securityContext:
             allowPrivilegeEscalation: false
             readOnlyRootFilesystem: true

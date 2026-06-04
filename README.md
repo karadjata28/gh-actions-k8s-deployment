@@ -91,10 +91,8 @@ GitHub Actions
 
 | Method | Path | Description |
 | --- | --- | --- |
-| GET | `/` | Returns app name, environment, version, hostname, and whether an example secret is configured. |
+| GET | `/` | Returns app name, environment, version, and hostname. |
 | GET | `/health` | Returns health status for probes and load balancers. |
-
-The root endpoint intentionally does not return secret values. It only reports whether the secret environment variable is present.
 
 ## Branch-to-Environment Mapping
 
@@ -200,7 +198,6 @@ Included Kubernetes resources:
 - ClusterIP Service
 - Ingress
 - ConfigMap
-- Secret example manifest, intentionally not applied by Kustomize
 - HorizontalPodAutoscaler
 
 The Deployment includes:
@@ -213,7 +210,6 @@ The Deployment includes:
 - Readiness and liveness probes
 - Rolling update strategy
 - ConfigMap-driven environment variables
-- Optional example Secret usage
 
 ## Start Minikube
 
@@ -291,24 +287,6 @@ kubectl describe deployment devops-k8s-demo -n devops-demo-dev
 kubectl logs -l app.kubernetes.io/name=devops-k8s-demo -n devops-demo-dev
 ```
 
-## Secrets Handling
-
-This repository does not include real secrets.
-
-`k8s/base/secret-example.yaml` contains only placeholder values so the manifest structure is complete. It is intentionally not included in `k8s/base/kustomization.yaml` because applying an overlay should not overwrite a real Kubernetes Secret with a placeholder.
-
-For real usage, create secrets outside Git:
-
-```bash
-kubectl create secret generic devops-k8s-demo-secret \
-  --from-literal=DEMO_SECRET_TOKEN='replace-with-real-value' \
-  -n devops-demo-dev \
-  --dry-run=client \
-  -o yaml | kubectl apply -f -
-```
-
-The application only reports whether `DEMO_SECRET_TOKEN` exists. It never returns the value.
-
 ## GitHub Actions Workflow
 
 The workflow is defined in `.github/workflows/ci-cd.yml`.
@@ -383,7 +361,6 @@ This makes the security gate visible and easy to explain during a portfolio revi
 
 - No real secrets committed.
 - GitHub Secrets used for Docker Hub credentials.
-- Kubernetes Secret example kept as placeholder-only documentation.
 - Container runs as a non-root user.
 - Pod and container security contexts restrict privileges.
 - Resource requests and limits are defined.
@@ -408,5 +385,5 @@ See `screenshots/README.md` for the screenshot checklist. Useful screenshots inc
 ## How This Project Can Be Described on a CV
 
 - Built a GitHub Actions CI/CD pipeline for a containerized Flask application, including syntax checks, linting, unit tests, Docker image build, Trivy vulnerability scanning, image publishing, and Kubernetes deployment.
-- Implemented Kubernetes manifests with Kustomize overlays for test, dev, and prod environments, including ConfigMaps, Secrets, probes, resource limits, HPA, and Ingress for Minikube.
-- Added branch-based environment selection, secure secret handling, deployment verification, and automated GitHub Actions deployment summaries for clear release visibility.
+- Implemented Kubernetes manifests with Kustomize overlays for test, dev, and prod environments, including ConfigMaps, probes, resource limits, HPA, and Ingress for Minikube.
+- Added branch-based environment selection, deployment verification, and automated GitHub Actions deployment summaries for clear release visibility.
