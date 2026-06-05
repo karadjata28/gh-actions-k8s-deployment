@@ -13,6 +13,7 @@ Developer push
 GitHub Actions
      |
      +--> Detect branch environment
+     |       test      -> test
      |       feature/* -> test
      |       develop   -> dev
      |       main      -> prod
@@ -98,6 +99,7 @@ GitHub Actions
 
 | Branch pattern | Environment | Namespace | Ingress host |
 | --- | --- | --- | --- |
+| `test` | `test` | `devops-demo-test` | `test.devops-demo.local` |
 | `feature/*` | `test` | `devops-demo-test` | `test.devops-demo.local` |
 | `develop` | `dev` | `devops-demo-dev` | `dev.devops-demo.local` |
 | `main` | `prod` | `devops-demo-prod` | `prod.devops-demo.local` |

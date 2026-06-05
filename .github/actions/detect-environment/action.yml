@@ -43,7 +43,7 @@ runs:
         service_name="devops-k8s-demo"
 
         case "$branch" in
-          feature/*)
+          test|feature/*)
             environment="test"
             namespace="devops-demo-test"
             ingress_host="test.devops-demo.local"
@@ -64,7 +64,7 @@ runs:
             ingress_host="prod.devops-demo.local"
             ;;
           *)
-            echo "::error::Unsupported branch '$branch'. Allowed patterns: feature/*, develop, main, hotfix/* "
+            echo "::error::Unsupported branch '$branch'. Allowed patterns: test, feature/*, develop, main, hotfix/* "
             exit 1
             ;;
         esac
